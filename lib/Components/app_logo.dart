@@ -15,7 +15,6 @@ class AppLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Initialize responsive utils if not already
     Responsive().init(context);
 
     final double effectiveIconSize = iconSize ?? 30.sp;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../utils/responsive.dart';
+import '../services/auth_service.dart';
 
 class SecurityPrivacyPage extends StatefulWidget {
   const SecurityPrivacyPage({super.key});
@@ -80,10 +81,18 @@ class _SecurityPrivacyPageState extends State<SecurityPrivacyPage> {
               ),
             ),
             TextButton(
-              onPressed: () {
-                // Handle deletion logic here
-                Navigator.pop(context);
-                Navigator.pushReplacementNamed(context, '/login');
+              onPressed: () async {
+                try {
+                  await AuthService.instance.deleteAccount();
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                }
               },
               child: Text(
                 'Delete',

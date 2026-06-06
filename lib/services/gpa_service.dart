@@ -51,8 +51,8 @@ class GpaService {
 
     for (var course in courses) {
       String courseId = course['id'].toString();
-      double creditHours = (course['credit_hours'] as num).toDouble();
-      double grade = targetGrades[courseId] ?? 0.0;
+      double creditHours = (course['credit_hours'] as num?)?.toDouble() ?? 3.0;
+      double grade = targetGrades[courseId] ?? 4.0;
 
       newPoints += grade * creditHours;
       newCredits += creditHours;

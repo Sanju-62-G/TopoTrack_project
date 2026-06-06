@@ -5,8 +5,8 @@ import '../Components/custom_button.dart';
 import '../Components/toolcard.dart';
 import '../models/goal_setup_data.dart';
 import '../services/goal_service.dart';
+import '../services/course_service.dart';
 import 'academic_setup.dart';
-import 'goal_setup.dart';
 
 class CareerGoalPickerScreen extends StatefulWidget {
   final GoalSetupData? goalData;
@@ -230,6 +230,12 @@ class _CareerGoalPickerScreenState extends State<CareerGoalPickerScreen> {
         careerGoal: _data.careerGoal,
         semester: _data.semester ?? 'N/A',
       );
+
+      // যদি ক্যারিয়ার গোল থাকে, তবে প্রেসেট কোর্স লোড করো
+      if (_data.careerGoal != null) {
+        await CourseService.setupCareerPresets(_data.careerGoal!);
+      }
+
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
     } catch (e) {

@@ -20,7 +20,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   Widget build(BuildContext context) {
     Responsive().init(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F1E9),
+      backgroundColor: Colors.transparent,
       appBar: _buildAppBar(context),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(24.w),
@@ -34,10 +34,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               hint: 'e.g. Graph Algorithms Revision',
               label: 'Task Title',
             ),
-            SizedBox(height: 24.h),
-            _buildSectionTitle('Category'),
-            SizedBox(height: 12.h),
-            _buildCategorySelector(),
             SizedBox(height: 24.h),
             Row(
               children: [
@@ -55,10 +51,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 ),
               ],
             ),
-            SizedBox(height: 24.h),
-            _buildSectionTitle('Priority Level'),
-            SizedBox(height: 12.h),
-            _buildPrioritySelector(),
             SizedBox(height: 40.h),
             CustomButton(
               content: 'Add to Schedule',
@@ -144,76 +136,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildCategorySelector() {
-    final categories = ['Academic', 'Career Skill', 'Both'];
-    return Row(
-      children: categories.map((cat) {
-        bool isSelected = _selectedCategory == cat;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => setState(() => _selectedCategory = cat),
-            child: Container(
-              margin: EdgeInsets.symmetric(horizontal: 4.w),
-              padding: EdgeInsets.symmetric(vertical: 12.h),
-              decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF4F200D) : Colors.white,
-                borderRadius: BorderRadius.circular(14.w),
-                border: Border.all(color: isSelected ? Colors.transparent : const Color(0xFFE2E8F0)),
-              ),
-              child: Text(
-                cat,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.white : Colors.grey,
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildPrioritySelector() {
-    final priorities = [
-      {'label': 'Low', 'color': Colors.green},
-      {'label': 'Medium', 'color': const Color(0xFFFF9A00)},
-      {'label': 'High', 'color': Colors.red},
-    ];
-    return Row(
-      children: priorities.map((p) {
-        String label = p['label'] as String;
-        Color color = p['color'] as Color;
-        bool isSelected = _selectedPriority == label;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => setState(() => _selectedPriority = label),
-            child: Container(
-              margin: EdgeInsets.symmetric(horizontal: 4.w),
-              padding: EdgeInsets.symmetric(vertical: 12.h),
-              decoration: BoxDecoration(
-                color: isSelected ? color : Colors.white,
-                borderRadius: BorderRadius.circular(14.w),
-                border: Border.all(color: isSelected ? Colors.transparent : const Color(0xFFE2E8F0)),
-              ),
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.white : Colors.grey,
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 

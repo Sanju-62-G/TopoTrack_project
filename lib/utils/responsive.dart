@@ -11,10 +11,8 @@ class Responsive {
     screenHeight = _mediaQueryData.size.height;
   }
 
-  // Returns a value scaled according to screen width
-  // Using a more restrained scaling factor for "medium small" look
   static double setWidth(double width) {
-    // Reference width 375
+
     if (screenWidth <= 375) return (width / 375) * screenWidth;
     
     // For larger screens, we scale up by only 10% of the difference
@@ -22,7 +20,7 @@ class Responsive {
     return width * scale.clamp(1.0, 1.3);
   }
 
-  // Returns a value scaled according to screen height
+
   static double setHeight(double height) {
     if (screenHeight <= 812) return (height / 812) * screenHeight;
     
@@ -30,11 +28,11 @@ class Responsive {
     return height * scale.clamp(1.0, 1.3);
   }
 
-  // Adaptive font size - subtle scaling
+
   static double setSp(double fontSize) {
     if (screenWidth <= 375) return (fontSize / 375) * screenWidth;
     
-    // On larger screens, font size only grows by 15% maximum
+
     double t = (screenWidth - 375) / (1200 - 375);
     t = t.clamp(0.0, 1.0);
     double scale = 1.0 + (t * 0.15);
@@ -53,7 +51,7 @@ class Responsive {
       MediaQuery.of(context).size.width >= 1200;
 }
 
-// Extension to make it easier to use
+
 extension ResponsiveExtension on num {
   double get sp => Responsive.setSp(toDouble());
   double get w => Responsive.setWidth(toDouble());

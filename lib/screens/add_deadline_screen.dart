@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../utils/responsive.dart';
 import '../Components/custom_button.dart';
 import '../services/deadline_service.dart';
+import '../services/notification_service.dart';
 
 class AddDeadlineScreen extends StatefulWidget {
   const AddDeadlineScreen({super.key});
@@ -112,10 +113,11 @@ class _AddDeadlineScreenState extends State<AddDeadlineScreen> {
                     deadlineAt: deadlineDateTime,
                   );
 
-                  DeadlineService.scheduleReminders({
-                    'title': _titleController.text,
-                    'deadline_at': deadlineDateTime.toIso8601String(),
-                  });
+                  await NotificationService.scheduleDeadlineReminders(
+                    title: _titleController.text,
+                    deadlineAt: deadlineDateTime,
+                    baseId: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                  );
 
                   if (context.mounted) {
                     Navigator.pop(context);

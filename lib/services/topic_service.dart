@@ -43,7 +43,7 @@ class TopicService {
     final topics = await SupabaseClientService.from('topics')
         .select('''
           *,
-          topic_prerequisites!topic_id(
+          topic_prerequisites(
             prerequisite_id
           )
         ''')

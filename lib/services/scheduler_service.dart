@@ -28,7 +28,7 @@ class SchedulerService {
         .eq('user_id', userId)
         .eq('is_completed', false);
 
-    if (topics == null || topics.isEmpty) return [];
+    if (topics.isEmpty) return [];
 
     // Topological sort করো
     final sorted = TopologicalSort.sort(
@@ -86,12 +86,15 @@ class SchedulerService {
           '${displayHour.toString().padLeft(2, '0')}:${startMinute.toString().padLeft(2, '0')} $period';
 
       schedule.add({
+        'id': topic['id'],
         'topic': topic,
         'allocated_hours': allocatedHours,
         'start_time': startTime,
         'course_name': topic['courses']?['name'] ?? 'General',
         'course_code': topic['courses']?['course_code'] ?? '',
-        'priority': _getPriorityLabel(topic['weight'] as double),
+        'priority': getPriorityLabel(topic['weight'] as double),
+        'is_completed': topic['is_completed'] ?? false,
+        'topics': topic, // For compatibility with UI expecting task['topics']
       });
 
       remainingHours -= allocatedHours;
@@ -101,8 +104,22 @@ class SchedulerService {
     return schedule;
   }
 
+  // Generate daily tasks for UI
+  static Future<List<Map<String, dynamic>>> generateDailyTasks() async {
+    final weighted = await generateSchedule();
+    // Default daily study limit 4 hours
+    return buildDailySchedule(weighted, 4.0);
+  }
+
+  // Complete task wrapper
+  static Future<void> completeTask(String taskId) async {
+    await SupabaseClientService.from('topics')
+        .update({'is_completed': true})
+        .eq('id', taskId);
+  }
+
   // Priority label
-  static String _getPriorityLabel(double weight) {
+  static String getPriorityLabel(double weight) {
     if (weight >= 15) return 'High';
     if (weight >= 8) return 'Medium';
     return 'Low';

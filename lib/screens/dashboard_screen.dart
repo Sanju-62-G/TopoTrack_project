@@ -4,9 +4,13 @@ import '../Components/custom_button.dart';
 import '../Components/deadline_item.dart';
 import '../Components/toolcard.dart';
 import '../utils/responsive.dart';
+import '../utils/side_panel.dart';
 import '../services/auth_service.dart';
 import '../services/deadline_service.dart';
 import '../services/goal_service.dart';
+import '../services/course_service.dart';
+import '../services/topic_service.dart';
+import '../services/scheduler_service.dart';
 import '../Goal_Engine/goal_setup.dart';
 import 'add_deadline_screen.dart';
 import 'edit_deadline_screen.dart';
@@ -26,15 +30,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Map<String, dynamic>> _deadlines = [];
   String _userName = 'Sami';
   String _currentGoal = 'Improve my CGPA';
-  String? _careerGoal;
   double _currentCgpa = 3.82;
   double _targetCgpa = 4.0;
   String _semester = 'N/A';
+  bool _isLoading = true;
+
+  // Stats
+  int _topicsDoneCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _loadAllData();
+  }
+
+  Future<void> _loadAllData() async {
+    setState(() => _isLoading = true);
+    await Future.wait([
+      _loadUserData(),
+      _loadStats(),
+    ]);
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final courses = await CourseService.getCourses();
+      int completedTopics = 0;
+
+      for (var course in courses) {
+        final topics = await TopicService.getTopics(course['id'].toString());
+        for (var topic in topics) {
+          if (topic['is_completed'] == true) {
+            completedTopics++;
+          }
+        }
+      }
+
+      setState(() {
+        _topicsDoneCount = completedTopics;
+      });
+    } catch (e) {
+      debugPrint('Error loading stats: $e');
+    }
+  }
+
+  double _calculateOverallProgress() {
+    if (_currentGoal == 'Improve my CGPA') {
+      return (_currentCgpa / _targetCgpa).clamp(0.0, 1.0);
+    } else if (_currentGoal == 'Build my career path') {
+      // Assuming 50 topics is 100% readiness for simplicity, or we can use a fixed scale
+      return (_topicsDoneCount / 50).clamp(0.0, 1.0);
+    } else {
+      // Both: 50/50 split
+      double cgpaProgress = (_currentCgpa / _targetCgpa).clamp(0.0, 1.0);
+      double careerProgress = (_topicsDoneCount / 50).clamp(0.0, 1.0);
+      return (cgpaProgress + careerProgress) / 2;
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -50,7 +102,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (goalData != null) {
         setState(() {
           _currentGoal = goalData['selected_goal'] ?? 'Improve my CGPA';
-          _careerGoal = goalData['career_goal'];
           _currentCgpa = (goalData['current_cgpa'] ?? 0.0).toDouble();
           _targetCgpa = (goalData['target_cgpa'] ?? 4.0).toDouble();
           _semester = goalData['semester'] ?? 'N/A';
@@ -96,59 +147,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.dispose();
   }
 
-  Future<T?> _showSidePanel<T>(Widget screen) {
-    return showGeneralDialog<T>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Side Panel',
-      barrierColor: Colors.black.withValues(alpha: 0.3),
-      transitionDuration: const Duration(milliseconds: 400),
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return Align(
-          alignment: Alignment.centerRight,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.85,
-              height: MediaQuery.of(context).size.height * 0.9,
-              margin: EdgeInsets.only(right: 16.w),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF6F1E9),
-                borderRadius: BorderRadius.circular(24.w),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 20,
-                    offset: const Offset(-5, 0),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24.w),
-                child: screen,
-              ),
-            ),
-          ),
-        );
-      },
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(1, 0),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutQuart,
-          )),
-          child: FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     Responsive().init(context);
@@ -160,16 +158,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Scaffold(
         key: scaffoldKey,
         backgroundColor: const Color(0xFFF6F1E9),
-        body: SingleChildScrollView(
-          primary: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(24.w, 24.h, 24.w, 16.h),
-                child: Row(
+        body: _isLoading 
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF9A00)))
+          : SingleChildScrollView(
+              primary: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: EdgeInsetsDirectional.fromSTEB(24.w, 24.h, 24.w, 16.h),
+                    child: Row(
                   mainAxisSize: MainAxisSize.max,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -236,24 +236,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: EdgeInsetsDirectional.fromSTEB(24.w, 0, 24.w, 0),
                 child: Container(
                   decoration: BoxDecoration(
-                    boxShadow: [
-                      BoxShadow(
-                        blurRadius: 5.w,
-                        color: const Color(0x33000000),
-                        offset: Offset(0, 2.h),
-                      )
-                    ],
                     gradient: const LinearGradient(
                       colors: [
                         Color(0xFF9846E5),
                         Color(0xFFEAB712),
                       ],
-                      stops: [0, 1],
-                      begin: AlignmentDirectional(0, -1),
-                      end: AlignmentDirectional(0, 1),
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
                     ),
                     borderRadius: BorderRadius.circular(24.w),
-                    shape: BoxShape.rectangle,
+                    boxShadow: [
+                      BoxShadow(
+                        blurRadius: 15.w,
+                        color: Colors.black.withValues(alpha: 0.1),
+                        offset: Offset(0, 8.h),
+                      )
+                    ],
                   ),
                   child: Padding(
                     padding: EdgeInsets.all(24.w),
@@ -268,15 +266,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _currentGoal == 'Build my career path' 
-                                ? 'Career Readiness' 
+                              _currentGoal == 'Build my career path'
+                                ? 'Career Readiness'
                                 : _currentGoal == 'Both — CGPA + Career'
                                   ? 'Overall Progress'
                                   : 'Current CGPA',
                               style: GoogleFonts.poppins(
                                 fontSize: 12.sp,
-                                color: Colors.white.withValues(alpha: 0.8),
-                                height: 1.3,
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                             Row(
@@ -286,15 +284,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               children: [
                                 Text(
                                   _currentGoal == 'Build my career path' 
-                                    ? '45%' 
+                                    ? '${(_calculateOverallProgress() * 100).toInt()}%'
                                     : _currentGoal == 'Both — CGPA + Career'
-                                      ? '$_currentCgpa / 65%'
+                                      ? '$_currentCgpa / ${(_calculateOverallProgress() * 100).toInt()}%'
                                       : '$_currentCgpa',
                                   style: GoogleFonts.inter(
                                     fontSize: _currentGoal == 'Both — CGPA + Career' ? 20.sp : 28.sp,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
-                                    height: 1.5,
                                   ),
                                 ),
                                 if (_currentGoal == 'Improve my CGPA')
@@ -303,7 +300,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     style: GoogleFonts.inter(
                                       fontSize: 12.sp,
                                       color: Colors.white.withValues(alpha: 0.7),
-                                      height: 1.4,
                                     ),
                                   ),
                               ].divide(SizedBox(width: 4.w)),
@@ -320,19 +316,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 width: 56.w,
                                 height: 56.w,
                                 child: CircularProgressIndicator(
-                                  value: 0.85,
+                                  value: _calculateOverallProgress(),
                                   strokeWidth: 4.w,
                                   backgroundColor: Colors.white.withValues(alpha: 0.2),
                                   valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                                 ),
                               ),
                               Text(
-                                '85%',
+                                '${(_calculateOverallProgress() * 100).toInt()}%',
                                 style: GoogleFonts.poppins(
                                   fontSize: 10.sp,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
-                                  height: 1.2,
                                 ),
                               ),
                             ],
@@ -451,18 +446,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: EdgeInsetsDirectional.fromSTEB(24.w, 0, 24.w, 0),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF6EE),
+                    color: const Color(0xFFFFF9F2),
                     boxShadow: [
                       BoxShadow(
-                        blurRadius: 5.w,
-                        color: const Color(0x33000000),
-                        offset: Offset(0, 2.h),
+                        blurRadius: 10.w,
+                        color: Colors.black.withValues(alpha: 0.05),
+                        offset: Offset(0, 4.h),
                       )
                     ],
-                    borderRadius: BorderRadius.circular(20.w),
-                    shape: BoxShape.rectangle,
+                    borderRadius: BorderRadius.circular(24.w),
                     border: Border.all(
-                      color: const Color(0xFFFFD93D),
+                      color: const Color(0xFFFFD93D).withValues(alpha: 0.3),
                       width: 1,
                     ),
                   ),
@@ -490,8 +484,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               'This Week',
                               style: GoogleFonts.poppins(
                                 fontSize: 11.sp,
+                                fontWeight: FontWeight.w500,
                                 color: const Color(0xFFFF9A00),
-                                height: 1.2,
                               ),
                             ),
                           ],
@@ -501,18 +495,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [4.0, 6.0, 3.0, 8.0, 5.0, 2.0, 7.0].map((h) => Container(
-                              width: 20.w,
-                              height: h * 8.h,
+                            children: [0.4, 0.6, 0.3, 0.8, 0.5, 0.2, 0.7].map((val) => Container(
+                              width: 18.w,
+                              height: (val * 80).h,
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFD93D),
-                                borderRadius: BorderRadius.circular(4.w),
-                                border: Border.all(color: const Color(0xFFFF9A00)),
+                                borderRadius: BorderRadius.circular(6.w),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFFF9A00).withValues(alpha: 0.2),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  )
+                                ]
                               ),
                             )).toList(),
                           ),
                         ),
-                      ].divide(SizedBox(height: 16.h)),
+                      ].divide(SizedBox(height: 20.h)),
                     ),
                   ),
                 ),
@@ -542,7 +542,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             IconButton(
                               onPressed: () async {
-                                await _showSidePanel(const AddDeadlineScreen());
+                                await showSidePanel(
+                                  context: context,
+                                  screen: const AddDeadlineScreen(),
+                                );
                                 _loadUserData();
                               },
                               icon: Icon(Icons.add_circle_outline_rounded, color: const Color(0xFFFF9A00), size: 22.sp),
@@ -594,8 +597,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               time: _formatDeadlineTime(deadline['deadline_at']),
                               title: deadline['title'] ?? 'Untitled',
                               onEdit: () async {
-                                final result = await _showSidePanel(
-                                  EditDeadlineScreen(deadline: deadline),
+                                final result = await showSidePanel(
+                                  context: context,
+                                  screen: EditDeadlineScreen(deadline: deadline),
                                 );
                                 if (result == true) {
                                   _loadUserData();

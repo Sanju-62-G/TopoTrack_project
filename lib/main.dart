@@ -24,11 +24,15 @@ import 'signup_login_screen/forgot_pass.dart';
 import 'Goal_Engine/goal_setup.dart';
 import 'Goal_Engine/career_goal_picker.dart';
 import 'Goal_Engine/academic_setup.dart';
+import 'screens/smart_scheduler_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'services/auth_service.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await NotificationService.initialize();
 
   await Supabase.initialize(
       url: "https://ysgspvfhpicigyrdzkuv.supabase.co",
@@ -86,6 +90,7 @@ class MyApp extends StatelessWidget {
         '/goal_setup': (context) => const GoalSetupScreen(),
         '/career_picker': (context) => const CareerGoalPickerScreen(),
         '/academic_setup': (context) => const AcademicSetupScreen(),
+        '/smart_scheduler': (context) => const SmartScheduler(),
       },
     );
   }

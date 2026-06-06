@@ -4,6 +4,7 @@ import '../utils/responsive.dart';
 import '../Components/custom_button.dart';
 import '../models/goal_setup_data.dart';
 import '../services/goal_service.dart';
+import '../services/career_template_service.dart';
 
 class AcademicSetupScreen extends StatefulWidget {
   final GoalSetupData? goalData;
@@ -121,11 +122,16 @@ class _AcademicSetupScreenState extends State<AcademicSetupScreen> {
                       cgpaPriorityRatio: _data.cgpaPriorityRatio,
                       semester: _data.semester ?? 'N/A',
                     );
+
+                    // Career goal থাকলে template load করো
+                    if (_data.careerGoal != null) {
+                      await CareerTemplateService.loadCareerTemplate(_data.careerGoal!);
+                    }
                     
-                    if (!mounted) return;
+                    if (!context.mounted) return;
                     Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
                   } catch (e) {
-                    if (!mounted) return;
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Error saving goals: $e')),
                     );

@@ -22,7 +22,7 @@ class _GpaSimulatorScreenState extends State<GpaSimulatorScreen> {
   double _currentCgpa = 0.0;
   double _targetCgpa = 0.0;
   double _simulatedCgpa = 0.0;
-  int _completedCredits = 50; // Default fallback
+  int _completedCredits = 0;
   bool _isLoading = true;
 
   final List<String> _gradeOptions = [
@@ -49,6 +49,12 @@ class _GpaSimulatorScreenState extends State<GpaSimulatorScreen> {
         if (cgpaData != null) {
           _currentCgpa = (cgpaData['current_cgpa'] ?? 0.0).toDouble();
           _targetCgpa = (cgpaData['target_cgpa'] ?? 0.0).toDouble();
+
+          // Semester থেকে completed credits estimate করো
+          final semesterText = cgpaData['semester'] ?? 'Semester 1';
+          final semNum = int.tryParse(
+            semesterText.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+          _completedCredits = (semNum - 1) * 18; // প্রতি semester ~18 credits
         }
         _courses = courses;
         _targetGrades = grades;

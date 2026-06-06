@@ -3,6 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../utils/responsive.dart';
 import '../Goal_Engine/goal_setup.dart';
 import '../services/scheduler_service.dart';
+import '../services/topic_service.dart';
+import '../utils/side_panel.dart';
+import 'add_task_screen.dart';
 
 class SchedulerScreen extends StatefulWidget {
   const SchedulerScreen({super.key});
@@ -12,25 +15,33 @@ class SchedulerScreen extends StatefulWidget {
 }
 
 class _SchedulerScreenState extends State<SchedulerScreen> {
-  int _selectedDateIndex = 2; // Default to "Today" (Wed)
+  int _selectedDateIndex = 0;
   late String _optimizationMode;
   List<Map<String, dynamic>> _schedule = [];
   bool _isLoading = true;
   double _dailyHours = 4.0;
 
-  final List<Map<String, String>> _dates = [
-    {'day': 'Mon', 'date': '24'},
-    {'day': 'Tue', 'date': '25'},
-    {'day': 'Wed', 'date': '26'},
-    {'day': 'Thu', 'date': '27'},
-    {'day': 'Fri', 'date': '28'},
-    {'day': 'Sat', 'date': '29'},
-    {'day': 'Sun', 'date': '30'},
-  ];
+  late final List<Map<String, String>> _dates = _buildWeekDates();
+
+  List<Map<String, String>> _buildWeekDates() {
+    final now = DateTime.now();
+    // এই সপ্তাহের Monday খোঁজো
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    final dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    return List.generate(7, (i) {
+      final day = monday.add(Duration(days: i));
+      return {
+        'day': dayNames[i],
+        'date': day.day.toString(),
+      };
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    _selectedDateIndex = DateTime.now().weekday - 1; // 0=Mon, 6=Sun
     _initializeDefaultMode();
     _loadSchedule();
   }
@@ -169,10 +180,26 @@ class _SchedulerScreenState extends State<SchedulerScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showHoursDialog,
-        backgroundColor: const Color(0xFF4F200D),
-        child: const Icon(Icons.timer_outlined, color: Colors.white),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton(
+            heroTag: 'add_task',
+            onPressed: () => showSidePanel(
+              context: context,
+              screen: const AddTaskScreen(),
+            ),
+            backgroundColor: const Color(0xFFFF9A00),
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
+          SizedBox(height: 12.h),
+          FloatingActionButton(
+            heroTag: 'set_hours',
+            onPressed: _showHoursDialog,
+            backgroundColor: const Color(0xFF4F200D),
+            child: const Icon(Icons.timer_outlined, color: Colors.white),
+          ),
+        ],
       ),
     );
   }
@@ -206,14 +233,27 @@ class _SchedulerScreenState extends State<SchedulerScreen> {
                 ? const Color(0xFFBA7517)
                 : const Color(0xFF64748B);
 
-        return _buildTaskItem(
-          title: topic['name'],
-          course: item['course_code'] ?? 'General',
-          duration: '${item['allocated_hours'].toStringAsFixed(1)}h',
-          priority: '$priority Priority',
-          color: priorityColor,
-          startTime: item['start_time'],
-          isDone: topic['is_completed'] ?? false,
+        return GestureDetector(
+          onTap: () async {
+            try {
+              await TopicService.markCompleted(
+                topic['id'].toString(),
+                !(topic['is_completed'] ?? false),
+              );
+              _loadSchedule();
+            } catch (e) {
+              debugPrint('Error marking topic as completed: $e');
+            }
+          },
+          child: _buildTaskItem(
+            title: topic['name'],
+            course: item['course_code'] ?? 'General',
+            duration: '${item['allocated_hours'].toStringAsFixed(1)}h',
+            priority: '$priority Priority',
+            color: priorityColor,
+            startTime: item['start_time'],
+            isDone: topic['is_completed'] ?? false,
+          ),
         );
       }).toList(),
     );

@@ -7,6 +7,7 @@ import '../services/course_service.dart';
 import 'planner_course_item.dart';
 import 'planner_mode_switcher.dart';
 import '../graph/visual_paths_screen.dart';
+import '../utils/side_panel.dart';
 import '../graph/dag_graph_screen.dart';
 import 'add_course_screen.dart';
 
@@ -165,9 +166,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
         ),
         IconButton(
           onPressed: () async {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AddCourseScreen()),
+            final result = await showSidePanel(
+              context: context,
+              screen: const AddCourseScreen(),
             );
             if (result == true) _loadCourses();
           },
@@ -278,31 +279,33 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   Widget _buildActionButtons() {
-    return Column(
+    return Row(
       children: [
-        CustomButton(
-          content: 'View Visual Paths (DAG)',
-          width: double.infinity,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const VisualPathsScreen()),
-            );
-          },
+        Expanded(
+          child: CustomButton(
+            content: 'Visual Paths',
+            size: 'small',
+            iconPresent: true,
+            icon: Icon(Icons.account_tree_rounded, color: const Color(0xFF4F200D), size: 16.sp),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const VisualPathsScreen()),
+              );
+            },
+          ),
         ),
-        SizedBox(height: 16.h),
-        CustomButton(
-          content: 'Generate Study Schedule',
-          width: double.infinity,
-          variant: 'outline',
-          onPressed: () {},
-        ),
-        SizedBox(height: 16.h),
-        CustomButton(
-          content: 'Track Topics Progress',
-          width: double.infinity,
-          variant: 'outline',
-          onPressed: () {},
+        SizedBox(width: 12.w),
+        Expanded(
+          child: CustomButton(
+            content: 'Study Plan',
+            size: 'small',
+            iconPresent: true,
+            icon: Icon(Icons.auto_awesome_rounded, color: const Color(0xFF4F200D), size: 16.sp),
+            onPressed: () {
+              Navigator.pushNamed(context, '/smart_scheduler');
+            },
+          ),
         ),
       ],
     );

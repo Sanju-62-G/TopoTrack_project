@@ -83,4 +83,75 @@ class CourseService {
         .delete()
         .eq('id', courseId);
   }
+
+  // Career অনুযায়ী preset courses এবং topics অ্যাড করো
+  static Future<void> setupCareerPresets(String careerGoal) async {
+    final userId = SupabaseClientService.currentUserId;
+    if (userId == null) return;
+
+    // Normalize career goal string (e.g., "Flutter Developer" -> "flutter_developer")
+    final normalizedGoal = careerGoal.toLowerCase().replaceAll(' ', '_');
+
+    // 1. Get all template courses for this career
+    final presetCourses = await SupabaseClientService.from('career_template_courses')
+        .select()
+        .eq('career_goal', normalizedGoal)
+        .order('order_index', ascending: true);
+
+    Map<String, String> templateTopicToUserTopic = {};
+
+    for (var preset in presetCourses) {
+      // 2. Insert course for user
+      final newCourse = await SupabaseClientService.from('courses').insert({
+        'user_id': userId,
+        'name': preset['course_name'],
+        'course_code': preset['course_code'],
+        'credit_hours': preset['credit_hours'],
+        'semester': 'Semester 1', 
+        'is_career_relevant': true,
+      }).select().single();
+
+      // 3. Get template topics for this course
+      final presetTopics = await SupabaseClientService.from('career_template_topics')
+          .select()
+          .eq('template_course_id', preset['id'])
+          .order('order_index', ascending: true);
+
+      for (var topic in presetTopics) {
+        // 4. Insert topic for user
+        final insertedTopic = await SupabaseClientService.from('topics').insert({
+          'user_id': userId,
+          'course_id': newCourse['id'],
+          'name': topic['name'],
+          'difficulty': topic['difficulty'],
+          'estimated_hours': topic['estimated_hours'],
+          'is_career_relevant': true,
+          'is_completed': false,
+        }).select().single();
+        
+        templateTopicToUserTopic[topic['id'].toString()] = insertedTopic['id'].toString();
+      }
+    }
+
+    // 5. Setup prerequisites
+    if (templateTopicToUserTopic.isNotEmpty) {
+      final templateTopicIds = templateTopicToUserTopic.keys.toList();
+      
+      final allTemplatePrereqs = await SupabaseClientService.from('career_template_prerequisites')
+          .select()
+          .filter('topic_id', 'in', templateTopicIds);
+
+      for (var prereq in allTemplatePrereqs) {
+        final userTopicId = templateTopicToUserTopic[prereq['topic_id'].toString()];
+        final userPrereqId = templateTopicToUserTopic[prereq['prerequisite_id'].toString()];
+
+        if (userTopicId != null && userPrereqId != null) {
+          await SupabaseClientService.from('topic_prerequisites').insert({
+            'topic_id': userTopicId,
+            'prerequisite_id': userPrereqId,
+          });
+        }
+      }
+    }
+  }
 }

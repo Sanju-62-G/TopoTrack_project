@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/responsive.dart';
 import '../Components/custom_button.dart';
+import '../services/supabase_client.dart';
 
 class ChangePasswordPage extends StatefulWidget {
   const ChangePasswordPage({super.key});
@@ -11,9 +13,57 @@ class ChangePasswordPage extends StatefulWidget {
 }
 
 class _ChangePasswordPageState extends State<ChangePasswordPage> {
-  bool _obscureCurrent = true;
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   bool _obscureNew = true;
   bool _obscureConfirm = true;
+  bool _isLoading = false;
+
+  Future<void> _updatePassword() async {
+    final newPass = _newPasswordController.text.trim();
+    final confirmPass = _confirmPasswordController.text.trim();
+
+    if (newPass.isEmpty || confirmPass.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
+      return;
+    }
+
+    if (newPass != confirmPass) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
+      return;
+    }
+
+    if (newPass.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password must be at least 6 characters')));
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await SupabaseClientService.auth.updateUser(
+        UserAttributes(password: newPass),
+      );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password updated successfully!'), backgroundColor: Colors.green),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,15 +85,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
             ),
             SizedBox(height: 32.h),
             _buildPasswordField(
-              'Current Password',
-              'Enter current password',
-              _obscureCurrent,
-              () => setState(() => _obscureCurrent = !_obscureCurrent),
-            ),
-            SizedBox(height: 16.h),
-            _buildPasswordField(
               'New Password',
               'Enter new password',
+              _newPasswordController,
               _obscureNew,
               () => setState(() => _obscureNew = !_obscureNew),
             ),
@@ -51,26 +95,18 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
             _buildPasswordField(
               'Confirm New Password',
               'Repeat new password',
+              _confirmPasswordController,
               _obscureConfirm,
               () => setState(() => _obscureConfirm = !_obscureConfirm),
             ),
             SizedBox(height: 40.h),
-            CustomButton(
-              content: 'Update Password',
-              width: double.infinity,
-              onPressed: () {
-                // Show success message or handle update
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Password updated successfully!'),
-                    backgroundColor: Colors.green,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            _isLoading 
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF9A00)))
+                : CustomButton(
+                    content: 'Update Password',
+                    width: double.infinity,
+                    onPressed: _updatePassword,
                   ),
-                );
-                Navigator.pop(context);
-              },
-            ),
           ],
         ),
       ),
@@ -96,7 +132,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     );
   }
 
-  Widget _buildPasswordField(String label, String hint, bool obscure, VoidCallback onToggle) {
+  Widget _buildPasswordField(String label, String hint, TextEditingController controller, bool obscure, VoidCallback onToggle) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -110,6 +146,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
         ),
         SizedBox(height: 8.h),
         TextFormField(
+          controller: controller,
           obscureText: obscure,
           style: GoogleFonts.inter(fontSize: 14.sp, color: const Color(0xFF4F200D)),
           decoration: InputDecoration(

@@ -24,7 +24,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _handleResetPassword() async {
-    if (_emailController.text.isEmpty) {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
       _showError('Please enter your email');
       return;
     }
@@ -32,7 +33,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await AuthService.instance.resetPassword(_emailController.text.trim());
+      // Check if user exists first
+      final exists = await AuthService.instance.checkEmailExists(email);
+      
+      if (!exists) {
+        if (mounted) {
+          _showError('don\'t have any account using this email');
+        }
+        return;
+      }
+
+      await AuthService.instance.resetPassword(email);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

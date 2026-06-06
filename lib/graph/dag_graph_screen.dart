@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/topic_service.dart';
 import '../algorithms/topological_sort.dart';
 import '../utils/responsive.dart';
+import '../planner/add_topic_screen.dart';
+import '../utils/side_panel.dart';
 
 class DAGGraphScreen extends StatefulWidget {
   final String courseId;
@@ -70,24 +72,29 @@ class _DAGGraphScreenState extends State<DAGGraphScreen> {
     }
   }
 
-  Color _getNodeColor(Map<String, dynamic> topic) {
-    if (topic['is_completed'] == true) {
-      return const Color(0xFF22C55E); // green
-    }
-
+  // Topic unlock check
+  bool _isUnlocked(Map<String, dynamic> topic) {
     List prereqs = topic['topic_prerequisites'] ?? [];
-    if (prereqs.isEmpty) return const Color(0xFFFF9A00); // orange (unlocked)
+    if (prereqs.isEmpty) return true;
 
-    bool isUnlocked = prereqs.every((p) {
-      final prereqId = p['prerequisite_id'].toString();
+    return prereqs.every((prereq) {
+      String prereqId = prereq['prerequisite_id'].toString();
       return _topics.any((t) =>
         t['id'].toString() == prereqId &&
         t['is_completed'] == true
       );
     });
+  }
 
-    if (isUnlocked) return const Color(0xFFFF9A00); // orange
-    return const Color(0xFF94A3B8); // locked (grey)
+  // Node color
+  Color _getNodeColor(Map<String, dynamic> topic) {
+    if (topic['is_completed'] == true) {
+      return const Color(0xFF22C55E); // green = completed
+    }
+    if (_isUnlocked(topic)) {
+      return const Color(0xFFFF9A00); // orange = unlocked
+    }
+    return const Color(0xFF94A3B8); // grey = locked
   }
 
   @override
@@ -128,6 +135,21 @@ class _DAGGraphScreenState extends State<DAGGraphScreen> {
           icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF4F200D)),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            onPressed: () async {
+              final result = await showSidePanel(
+                context: context,
+                screen: AddTopicScreen(
+                  courseId: widget.courseId,
+                  existingTopics: _topics,
+                ),
+              );
+              if (result == true) _loadDAG();
+            },
+            icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFFFF9A00)),
+          ),
+        ],
       ),
       body: _topics.isEmpty 
         ? _buildEmptyState()
@@ -143,10 +165,13 @@ class _DAGGraphScreenState extends State<DAGGraphScreen> {
                 TreeEdgeRenderer(builder),
               ),
               builder: (Node node) {
-                String topicId = node.key!.value as String;
-                Map<String, dynamic> topic = _topics.firstWhere(
+                String topicId = node.key!.value.toString();
+                final topic = _topics.firstWhere(
                   (t) => t['id'].toString() == topicId,
+                  orElse: () => <String, dynamic>{},
                 );
+                
+                if (topic.isEmpty) return const SizedBox.shrink();
                 return _buildNode(topic);
               },
             ),
@@ -180,15 +205,23 @@ class _DAGGraphScreenState extends State<DAGGraphScreen> {
 
     return GestureDetector(
       onTap: () async {
-        try {
-          await TopicService.markCompleted(
-            topic['id'].toString(),
-            !isCompleted,
+        if (!_isUnlocked(topic)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Complete previous topics first!',
+              ),
+              backgroundColor: Color(0xFFD85A30),
+            ),
           );
-          _loadDAG();
-        } catch (e) {
-          debugPrint('Error updating topic: $e');
+          return;
         }
+
+        await TopicService.markCompleted(
+          topic['id'].toString(),
+          !(topic['is_completed'] ?? false),
+        );
+        _loadDAG();
       },
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
@@ -198,7 +231,7 @@ class _DAGGraphScreenState extends State<DAGGraphScreen> {
           border: Border.all(color: color, width: 2),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),

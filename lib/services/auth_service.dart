@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_client.dart';
 
@@ -57,6 +58,20 @@ class AuthService {
     await SupabaseClientService.auth.resetPasswordForEmail(email);
   }
 
+  // Check if email exists in users table
+  Future<bool> checkEmailExists(String email) async {
+    try {
+      final response = await SupabaseClientService.from('users')
+          .select('email')
+          .eq('email', email)
+          .maybeSingle();
+      return response != null;
+    } catch (e) {
+      debugPrint('Error checking email: $e');
+      return false;
+    }
+  }
+
   // Sign out
   Future<void> signOut() async {
     await SupabaseClientService.auth.signOut();
@@ -107,7 +122,45 @@ class AuthService {
     final userId = SupabaseClientService.currentUserId;
     if (userId == null) return;
 
-    await SupabaseClientService.from('users').delete().eq('id', userId);
-    await signOut();
+    try {
+      // 1. First, find all topics to delete their prerequisites
+      // This is necessary because topic_prerequisites doesn't have a user_id
+      final topicsData = await SupabaseClientService.from('topics')
+          .select('id')
+          .eq('user_id', userId);
+      
+      final List<dynamic> topicIds = topicsData.map((t) => t['id']).toList();
+
+      if (topicIds.isNotEmpty) {
+        // Delete prerequisites associated with these topics
+        // We delete where either topic_id or prerequisite_id is one of our topics
+        await SupabaseClientService.from('topic_prerequisites')
+            .delete()
+            .inFilter('topic_id', topicIds);
+            
+        await SupabaseClientService.from('topic_prerequisites')
+            .delete()
+            .inFilter('prerequisite_id', topicIds);
+      }
+
+      // 2. Delete all user-specific data from other tables
+      // (This handles cases where ON DELETE CASCADE might not be set in the database)
+      await SupabaseClientService.from('user_skill_progress').delete().eq('user_id', userId);
+      await SupabaseClientService.from('deadlines').delete().eq('user_id', userId);
+      await SupabaseClientService.from('topics').delete().eq('user_id', userId);
+      await SupabaseClientService.from('courses').delete().eq('user_id', userId);
+
+      // 3. Delete the user profile from 'users' table
+      await SupabaseClientService.from('users').delete().eq('id', userId);
+
+      // 4. Sign out the user
+      // Note: This only signs out the user. To fully delete the Auth account, 
+      // a Supabase Edge Function or Database Trigger is typically required 
+      // as users cannot delete their own Auth account directly via the client SDK.
+      await signOut();
+    } catch (e) {
+      debugPrint('Error deleting account: $e');
+      rethrow; // Rethrow to show error in UI
+    }
   }
 }

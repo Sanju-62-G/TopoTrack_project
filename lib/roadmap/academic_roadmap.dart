@@ -1,16 +1,69 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../utils/responsive.dart';
+import '../services/course_service.dart';
+import '../services/gpa_service.dart';
 
-class AcademicRoadmap extends StatelessWidget {
+class AcademicRoadmap extends StatefulWidget {
   const AcademicRoadmap({super.key});
 
   @override
+  State<AcademicRoadmap> createState() => _AcademicRoadmapState();
+}
+
+class _AcademicRoadmapState extends State<AcademicRoadmap> {
+  Map<String, List<Map<String, dynamic>>> _coursesBySemester = {};
+  double _currentCgpa = 0.0;
+  double _targetCgpa = 0.0;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final courses = await CourseService.getCourses();
+      final cgpaData = await GpaService.getCgpaData();
+      
+      final Map<String, List<Map<String, dynamic>>> grouped = {};
+      for (var course in courses) {
+        final sem = course['semester'] ?? 'Semester 1';
+        if (!grouped.containsKey(sem)) grouped[sem] = [];
+        grouped[sem]!.add(course);
+      }
+
+      setState(() {
+        _coursesBySemester = grouped;
+        if (cgpaData != null) {
+          _currentCgpa = (cgpaData['current_cgpa'] ?? 0.0).toDouble();
+          _targetCgpa = (cgpaData['target_cgpa'] ?? 0.0).toDouble();
+        }
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading academic roadmap: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    Responsive().init(context);
+    
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFFFF9A00)));
+    }
+
+    final semesters = _coursesBySemester.keys.toList();
+    semesters.sort(); // Sort Semester 1, 2, 3...
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTrajectoryCard(context),
+        _buildTrajectoryCard(),
         SizedBox(height: 24.h),
         Text(
           'Semester Progression',
@@ -21,16 +74,40 @@ class AcademicRoadmap extends StatelessWidget {
           ),
         ),
         SizedBox(height: 16.h),
-        _buildSemesterItem('Semester 1', 'Completed', 1.0, '3.50 GPA', 'CSE101, MAT101, ENG101'),
-        _buildSemesterItem('Semester 2', 'Completed', 1.0, '3.65 GPA', 'CSE201, MAT201, PHY101'),
-        _buildSemesterItem('Semester 3', 'In Progress', 0.6, 'Target: 3.80', 'CSE301, CSE305, MAT301'),
-        _buildSemesterItem('Semester 4', 'Locked', 0, 'Pending', 'CSE401, CSE402, HUM101'),
-        _buildSemesterItem('Semester 5', 'Locked', 0, 'Pending', 'Capstone Phase 1, Elective I'),
+        if (semesters.isEmpty)
+          _buildEmptyState()
+        else
+          ...semesters.map((sem) {
+            final courses = _coursesBySemester[sem]!;
+            final courseNames = courses.map((c) => c['course_code']).join(', ');
+            return _buildSemesterItem(
+              sem, 
+              'Active Plan', 
+              1.0, 
+              '${courses.length} Courses', 
+              courseNames
+            );
+          }),
       ],
     );
   }
 
-  Widget _buildTrajectoryCard(BuildContext context) {
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 40.h),
+        child: Column(
+          children: [
+            Icon(Icons.history_edu_rounded, size: 48.sp, color: Colors.grey),
+            SizedBox(height: 16.h),
+            Text('No courses added to your planner yet.', style: GoogleFonts.inter(color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrajectoryCard() {
     return Container(
       padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
@@ -43,13 +120,22 @@ class AcademicRoadmap extends StatelessWidget {
           const Icon(Icons.trending_up_rounded, color: Color(0xFFEA580C), size: 32),
           SizedBox(width: 16.w),
           Expanded(
-            child: Text(
-              "At this pace, you'll reach 3.85 by Semester 6",
-              style: GoogleFonts.poppins(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF9A3412),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Goal Projection",
+                  style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.bold, color: const Color(0xFF9A3412)),
+                ),
+                Text(
+                  "Current: $_currentCgpa → Target: $_targetCgpa",
+                  style: GoogleFonts.poppins(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF9A3412),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -58,9 +144,7 @@ class AcademicRoadmap extends StatelessWidget {
   }
 
   Widget _buildSemesterItem(String title, String status, double progress, String detail, String courses) {
-    Color statusColor = status == 'Completed' 
-        ? const Color(0xFF22C55E) 
-        : (status == 'In Progress' ? const Color(0xFFFF9A00) : const Color(0xFF94A3B8));
+    Color statusColor = const Color(0xFFFF9A00);
 
     return Container(
       margin: EdgeInsets.only(bottom: 16.h),
@@ -103,7 +187,7 @@ class AcademicRoadmap extends StatelessWidget {
           ),
           SizedBox(height: 8.h),
           Text(
-            'Courses: $courses',
+            'Codes: $courses',
             style: GoogleFonts.poppins(
               fontSize: 11.sp,
               color: const Color(0xFF64748B),

@@ -44,7 +44,11 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacementNamed(context, '/dashboard');
       }
     } on AuthException catch (e) {
-      _showError(e.message);
+      String errorMessage = e.message;
+      if (errorMessage == 'Invalid login credentials') {
+        errorMessage = 'Wrong password. Enter correct password';
+      }
+      _showError(errorMessage);
     } catch (e) {
       _showError('An unexpected error occurred. Please try again.');
     } finally {
